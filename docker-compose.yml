@@ -1,0 +1,149 @@
+version: '3.6'
+
+services:
+  sqlServer:
+    image: "mcr.microsoft.com/mssql/server:latest"
+    container_name: sqlServer
+    environment:
+      SA_PASSWORD: "Akjd3_as77"
+      ACCEPT_EULA: "Y"
+    ports:
+      - "1433:1433"
+    networks:
+      - backend
+
+  eventstore_db:
+    image: eventstore/eventstore:22.10.2-buster-slim
+    environment:
+      - EVENTSTORE_CLUSTER_SIZE=1
+      - EVENTSTORE_RUN_PROJECTIONS=All
+      - EVENTSTORE_START_STANDARD_PROJECTIONS=true
+      - EVENTSTORE_EXT_TCP_PORT=1113
+      - EVENTSTORE_HTTP_PORT=2113
+      - EVENTSTORE_INSECURE=true
+      - EVENTSTORE_ENABLE_EXTERNAL_TCP=true
+      - EVENTSTORE_ENABLE_ATOM_PUB_OVER_HTTP=true
+    ports:
+      - "1113:1113"
+      - "2113:2113"
+    restart: always
+    networks:
+      - backend
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    hostname: zookeeper
+    container_name: zookeeperBank
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    #volumes:
+    #  - zookeeper_data:/var/lib/zookeeper/data
+    networks:
+      - backend
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    hostname: kafka
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092  # localhost for external connections
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      CONFLUENT_SUPPORT_CUSTOMER_ID: 'anonymous'
+
+    #volumes:
+    #  - kafka_data:/var/lib/kafka/data
+    volumes:
+    - ./start-kafka.sh:/start-kafka.sh
+    networks:
+      - backend
+    command: ["sh", "/start-kafka.sh"]  # Переопределение команды запуска на наш скрипт
+
+
+  akhq:
+    image: tchiotludo/akhq
+    container_name: akhqbank
+    depends_on:
+      - kafka
+    ports:
+      - "8080:8080"
+    environment:
+      AKHQ_CONFIGURATION: |
+        akhq:
+          connections:
+            kafka-cluster:
+              properties:
+                bootstrap.servers: kafka:29092
+    networks:
+      - backend
+
+  mongodb:
+    image: mongo:latest
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: password
+      ME_CONFIG_MONGODB_URL: "mongodb://root:password@mongodb:27017/"
+      ME_CONFIG_BASICAUTH_USERNAME: root
+      ME_CONFIG_BASICAUTH_PASSWORD: password
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - backend
+  mongo-express:
+    image: mongo-express
+    depends_on:
+      - mongodb
+    ports:
+      - "8081:8081"  # Mongo Express будет доступен на этом порту
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: password
+      ME_CONFIG_MONGODB_URL: "mongodb://root:password@mongodb:27017/"
+    networks:
+      - backend
+
+
+  loki:
+    image: grafana/loki:latest  # Using 'latest' for demonstration; specify a version for production
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:latest  # Using 'latest' for demonstration; specify a version for production
+    ports:
+      - "3000:3000"
+    depends_on:
+      - loki
+    networks:
+      - monitoring
+
+volumes:
+  zookeeper_data:
+    driver: local
+  kafka_data:
+    driver: local
+  mongodb_data:
+    driver: local
+
+networks:
+  backend:
+    driver: bridge
+  monitoring:
+    driver: bridge

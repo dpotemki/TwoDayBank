@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "TwoDayDemoBank.Worker.Notifications": {
+      "commandName": "Project",
+      "commandLineArgs": "--environment Development"
+    }
+  }
+}

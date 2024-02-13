@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Configurations>Debug;Release</Configurations>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MongoDB.Driver" Version="2.23.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TwoDayDemoBank.Common\TwoDayDemoBank.Common.csproj" />
+    <ProjectReference Include="..\TwoDayDemoBank.Domain\TwoDayDemoBank.Domain.csproj" />
+    <ProjectReference Include="..\TwoDayDemoBank.Service.Core.Common\TwoDayDemoBank.Service.Core.Common.csproj" />
+  </ItemGroup>
+
+</Project>
