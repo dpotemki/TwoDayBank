@@ -19,7 +19,7 @@ TwoDayBank is a demonstration project aimed at showcasing the practical applicat
 - **Loki & Grafana**: Logging and visualization duo for comprehensive system monitoring.
 - **Kubernetes**: Ensures scalability and orchestration of services.
 
-![Infrastructure Diagram](assets/TwoDayBankInfrastructure.svg)
+![Infrastructure Diagram](assets/TwoDayBankInfrastructure.png)
 
 ## Components 📦
 
@@ -64,7 +64,7 @@ TwoDayBank — это демонстрационный проект, цель к
 - **Loki & Grafana**: Дуэт для логирования и визуализации, обеспечивающий комплексный мониторинг системы.
 - **Kubernetes**: Обеспечивает масштабируемость и оркестрацию сервисов.
 
-![Infrastructure Diagram](assets/TwoDayBankInfrastructure.svg)
+![Infrastructure Diagram](assets/TwoDayBankInfrastructure.png)
 
 ## Компоненты 📦
 
