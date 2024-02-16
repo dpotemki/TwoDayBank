@@ -26,9 +26,9 @@ namespace TwoDayDemoBank.Persistence.EventStore
 
         public void Dispose()
         {
-    
+
         }
 
-    
+
     }
 }

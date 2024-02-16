@@ -9,7 +9,6 @@ using System.Threading;
 using EventStore.Client;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
-//using Newtonsoft.Json;
 
 namespace TwoDayDemoBank.Persistence.EventStore
 {
@@ -22,7 +21,7 @@ namespace TwoDayDemoBank.Persistence.EventStore
         private readonly IEventSerializer _eventSerializer;
 
         public EventStoreAggregateRepositoryV2(
-            EventStoreClient client, 
+            EventStoreClient client,
             ILogger<EventStoreAggregateRepositoryV2<TA, TKey>> logger,
             IEventSerializer eventSerializer)
         {
@@ -32,18 +31,14 @@ namespace TwoDayDemoBank.Persistence.EventStore
         }
         public async Task PersistAsync(TA aggregateRoot, CancellationToken cancellationToken = default)
         {
-            var events = aggregateRoot.Events.Select(e => new EventData(
-                 Uuid.NewUuid(),
-                 e.GetType().FullName,
-                 JsonSerializer.SerializeToUtf8Bytes(e)
-             )).ToArray();
+            var newEvents = aggregateRoot.Events.Select(Map).ToArray();
 
             var streamName = GetStreamName(aggregateRoot.Id);
 
             await _client.AppendToStreamAsync(
                 streamName,
                 StreamState.Any,
-                events,
+                newEvents,
                 cancellationToken: cancellationToken);
 
             aggregateRoot.ClearEvents();
@@ -64,17 +59,14 @@ namespace TwoDayDemoBank.Persistence.EventStore
 
                 await foreach (var @event in result)
                 {
-                    var eventType = Type.GetType(@event.Event.EventType);
-                    var eventData = _eventSerializer.Deserialize<TKey>(@event.Event.EventType, @event.Event.Data.ToArray());
-                    if (eventData is IDomainEvent<TKey> domainEvent)
-                    {
-                        events.Add(domainEvent);
-                    }
+
+                    var appedEvent = Map(@event);
+                    events.Add(appedEvent);
                 }
             }
-            catch (Exception ex)
+            catch (StreamNotFoundException ex)
             {
-                _logger.LogError(ex, "Error reading stream {StreamName}", streamName);
+                _logger.LogInformation(ex, "StreamNotFoundException {StreamName}", streamName);
                 return null;
             }
 
@@ -83,8 +75,36 @@ namespace TwoDayDemoBank.Persistence.EventStore
         }
 
 
-     
+
         private static string GetStreamName(TKey key) => $"{typeof(TA).Name}-{key}";
 
+
+        private IDomainEvent<TKey> Map(ResolvedEvent resolvedEvent)
+        {
+            var meta = System.Text.Json.JsonSerializer.Deserialize<EventMeta>(resolvedEvent.Event.Metadata.Span);
+            return _eventSerializer.Deserialize<TKey>(meta.EventType, resolvedEvent.Event.Data.ToArray());
+        }
+
+        private static EventData Map(IDomainEvent<TKey> @event)
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize((dynamic)@event);
+            var data = Encoding.UTF8.GetBytes(json);
+
+            var eventType = @event.GetType();
+            var meta = new EventMeta()
+            {
+                EventType = eventType.AssemblyQualifiedName
+            };
+            var metaJson = System.Text.Json.JsonSerializer.Serialize(meta);
+            var metadata = Encoding.UTF8.GetBytes(metaJson);
+
+            Guid id = Guid.NewGuid();
+            var eventPayload = new EventData(Uuid.NewUuid(), eventType.Name, data, metadata);
+            return eventPayload;
+        }
+        internal struct EventMeta
+        {
+            public string EventType { get; set; }
+        }
     }
 }
